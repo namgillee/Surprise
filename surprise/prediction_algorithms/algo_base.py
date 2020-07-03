@@ -243,16 +243,83 @@ class AlgoBase(object):
 
             args += [self.trainset.global_mean, bx, by, shrinkage]
 
+        if getattr(self, 'verbose', False):
+            print('Computing the {0} similarity matrix...'.format(name))
+            
+        ### Compute similarity matrix sim
         try:
-            if getattr(self, 'verbose', False):
-                print('Computing the {0} similarity matrix...'.format(name))
             sim = construction_func[name](*args)
-            if getattr(self, 'verbose', False):
-                print('Done computing similarity matrix.')
-            return sim
         except KeyError:
             raise NameError('Wrong sim name ' + name + '. Allowed values ' +
                             'are ' + ', '.join(construction_func.keys()) + '.')
+            
+        ### Compute Genre-based similarity matrix and mix it with sim
+        if self.sim_options.get('use_genre') is not None: 
+            genre_options = self.sim_options.get('use_genre', {})
+            genre_file = genre_options.get('genre_file', '')
+            genre_shrinkage = genre_options.get('genre_shrinkage', 0)
+            try:
+                #------ TO GO INTO SOME MODULE ------#
+                # Assume that genre.columns[0] is the items column if 'user_based' is True; users column if 'user_based' is False.
+                # Assume that genre.columns[1] is a column to discard.
+                # Assume that genre.columns[2:] are the genre levels.
+                
+                import pandas as pd
+                import numpy as np
+                from six import iteritems
+                
+                #---- Build genre and ratings in pandas data frame
+                genre = pd.read_csv(genre_file) # item-by-genre
+                genre[genre.columns[0]] = genre[genre.columns[0]].apply(str)
+                if self.sim_options['user_based']:
+                    ratings = pd.DataFrame(self.trainset.build_testset(), columns=['x','y','r'])
+                else:
+                    ratings = pd.DataFrame(self.trainset.build_testset(), columns=['y','x','r'])
+                #---- Merge ratings and genre
+                ratings_genre = pd.merge(ratings, genre, how='left', left_on='y', right_on=genre.columns[0])
+                ratings_genre = ratings_genre.drop(['y','r',genre.columns[0],genre.columns[1]], axis=1)
+                #---- Compute relative genre frequency matrix
+                z = ratings_genre.groupby('x').sum()
+                denom = z.sum(axis=1)
+                f = z.div(denom, axis=0)  ## Check div by zero
+                #---- Sort rows of f by x's inner id
+                if self.sim_options['user_based']:
+                    inner_id_f = [self.trainset.to_inner_uid(x) for x in f.index]
+                    #inner_id_f = pd.Series(f.index).apply(self.trainset.to_inner_uid)
+                else:
+                    inner_id_f = [self.trainset.to_inner_iid(x) for x in f.index]
+                    #inner_id_f = pd.Series(f.index).apply(self.trainset.to_inner_iid)
+                f = f.set_index([inner_id_f])
+                f.sort_index(inplace=True, ascending=True)
+                #---- Compute genre similarity matrix
+                fa = np.array(f)
+                genre_sim = np.zeros((n_x,n_x))
+                for i in range(0, n_x) :
+                    for j in range(0, n_x) :
+                        a = fa[i]+fa[j]
+                        b = np.where(a>0)
+                        b = np.array(b)
+                        b = b.tolist()
+                        b = b[0]
+                        x = 0
+                        y = 0
+                        for k in b :
+                            x += max(fa[i][k], fa[j][k])*(fa[i][k]-fa[j][k])*(fa[i][k]-fa[j][k])
+                            y += max(fa[i][k], fa[j][k])
+                            z1 = x/y
+                        genre_sim[i, j] = 1 - z1
+                #---- Mix sim and genre_sim to sim
+                sim = (1-genre_shrinkage) * sim + genre_shrinkage * genre_sim
+                    
+            except ImportError as error:
+                print(error.__class__.__name__ + ": " + error.message)
+            except Exception as exception:
+                print(exception.__class__.__name__ + ": " + exception.message)
+            
+        if getattr(self, 'verbose', False):
+            print('Done computing similarity matrix.')
+        return sim
+    
 
     def get_neighbors(self, iid, k):
         """Return the ``k`` nearest neighbors of ``iid``, which is the inner id
