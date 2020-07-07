@@ -8,6 +8,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 from .. import similarities as sims
+from .. import genre_similarities as genre_sims
 from .predictions import PredictionImpossible
 from .predictions import Prediction
 from .optimize_baselines import baseline_als
@@ -256,8 +257,13 @@ class AlgoBase(object):
         ### Compute Genre-based similarity matrix and mix it with sim
         if self.sim_options.get('use_genre') is not None: 
             genre_options = self.sim_options.get('use_genre', {})
+            
+            ##genre_sim = genre_sims.squared_deviance(n_x, yr, genre_options)
+            
             genre_file = genre_options.get('genre_file', '')
             genre_shrinkage = genre_options.get('genre_shrinkage', 0)
+            genre_type = genre_options.get('genre_type', 'squared')
+            
             try:
                 #------ TO GO INTO SOME MODULE ------#
                 # Assume that genre.columns[0] is the items column if 'user_based' is True; users column if 'user_based' is False.
@@ -304,7 +310,14 @@ class AlgoBase(object):
                         x = 0
                         y = 0
                         for k in b :
-                            x += max(fa[i][k], fa[j][k])*(fa[i][k]-fa[j][k])*(fa[i][k]-fa[j][k])
+                            
+                            if genre_type == 'squared':
+                                x += max(fa[i][k], fa[j][k])*(fa[i][k]-fa[j][k])*(fa[i][k]-fa[j][k])
+                            elif genre_type == 'absolute':
+                                x += max(fa[i][k], fa[j][k])* abs(fa[i][k]-fa[j][k])
+                            else:
+                                x += max(fa[i][k], fa[j][k])*(fa[i][k]-fa[j][k])*(fa[i][k]-fa[j][k])
+                            
                             y += max(fa[i][k], fa[j][k])
                             z1 = x/y
                         genre_sim[i, j] = 1 - z1
