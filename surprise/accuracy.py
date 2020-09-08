@@ -176,3 +176,130 @@ def fcp(predictions, verbose=True):
         print('FCP:  {0:1.4f}'.format(fcp))
 
     return fcp
+
+
+def precision(predictions, binary_threshold=4, greater_than_threshold=True, zero_division=1, verbose=True):
+    """Compute precision for thresholded predictions.
+
+    .. math::
+        \\text{precision} = \\frac{tp}{tp + fp}
+
+    Args:
+        predictions (:obj:`list` of :obj:`Prediction\
+            <surprise.prediction_algorithms.predictions.Prediction>`):
+            A list of predictions, as returned by the :meth:`test()
+            <surprise.prediction_algorithms.algo_base.AlgoBase.test>` method.
+        binary_threshold
+            threshold for binary classification
+        greater_than_threshold
+            If True, an estimated rating is considered positive iff est > binary_threshold,
+            and a true rating is considered positive iff true_r > binary_threshold.
+        verbose: If True, will print computed value. Default is ``True``.
+
+
+    Returns:
+        The Precision of thresholded predictions.
+
+    Raises:
+        ValueError: When ``predictions`` is empty.
+    """
+
+    if not predictions:
+        raise ValueError('Prediction list is empty.')
+
+    tp_ = np.sum([(true_r > positive_threshold and est > positive_threshold)
+                    for (_, _, true_r, est, _) in predictions])
+
+    fp_ = np.sum([(true_r <= positive_threshold and est > positive_threshold)
+                    for (_, _, true_r, est, _) in predictions])
+
+    prec_ = tp_/(tp_ + fp_) if (tp_ + fp_) > 0 else zero_division
+
+    if verbose:
+        print('Precision:  {0:1.4f}'.format(prec_))
+
+    return prec_
+
+
+def recall(predictions, binary_threshold=4, greater_than_threshold=True, zero_division=0, verbose=True):
+    """Compute recall for thresholded predictions.
+
+    .. math::
+        \\text{recall} = \\frac{tp}{tp + fn}
+
+    Args:
+        predictions (:obj:`list` of :obj:`Prediction\
+            <surprise.prediction_algorithms.predictions.Prediction>`):
+            A list of predictions, as returned by the :meth:`test()
+            <surprise.prediction_algorithms.algo_base.AlgoBase.test>` method.
+        binary_threshold
+            threshold for binary classification
+        greater_than_threshold
+            If True, an estimated rating is considered positive iff est > binary_threshold,
+            and a true rating is considered positive iff true_r > binary_threshold.
+        verbose: If True, will print computed value. Default is ``True``.
+
+
+    Returns:
+        The Recall of thresholded predictions.
+
+    Raises:
+        ValueError: When ``predictions`` is empty.
+    """
+
+    if not predictions:
+        raise ValueError('Prediction list is empty.')
+
+    tp_ = np.sum([(true_r > positive_threshold and est > positive_threshold)
+                    for (_, _, true_r, est, _) in predictions])
+
+    fn_ = np.sum([(true_r > positive_threshold and est <= positive_threshold)
+                    for (_, _, true_r, est, _) in predictions])
+
+    rec_ = tp_/(tp_ + fn_) if (tp_ + fn_) > 0 else zero_division
+
+    if verbose:
+        print('Recall:  {0:1.4f}'.format(rec_))
+
+    return rec_
+
+
+def f1score(predictions, binary_threshold=4, greater_than_threshold=True, zero_division=0, verbose=True):
+    """Compute F1 score for thresholded predictions.
+
+    .. math::
+        \\text{f1score} = \\frac{2* precision * recall}{precision + recall}
+
+    Args:
+        predictions (:obj:`list` of :obj:`Prediction\
+            <surprise.prediction_algorithms.predictions.Prediction>`):
+            A list of predictions, as returned by the :meth:`test()
+            <surprise.prediction_algorithms.algo_base.AlgoBase.test>` method.
+        binary_threshold
+            threshold for binary classification
+        greater_than_threshold
+            If True, an estimated rating is considered positive iff est > binary_threshold,
+            and a true rating is considered positive iff true_r > binary_threshold.
+        verbose: If True, will print computed value. Default is ``True``.
+
+
+    Returns:
+        The F1 score of thresholded predictions.
+
+    Raises:
+        ValueError: When ``predictions`` is empty.
+    """
+
+    if not predictions:
+        raise ValueError('Prediction list is empty.')
+
+    prec_ = precision(predictions, binary_threshold, greater_than_threshold, verbose=False)
+
+    rec_ = recall(predictions, binary_threshold, greater_than_threshold, verbose=False)
+
+    f1_ = 2 * prec_ * rec_ / (prec_ + rec_) if (prec_ + rec_) > 0 else zero_division
+
+    if verbose:
+        print('F1 score:  {0:1.4f}'.format(f1_))
+
+    return f1_

@@ -6,7 +6,7 @@ from math import sqrt
 
 import pytest
 
-from surprise.accuracy import mae, rmse, fcp, mse
+from surprise.accuracy import mae, rmse, fcp, mse, precision
 
 
 def pred(true_r, est, u0=None):
@@ -83,3 +83,23 @@ def test_mse():
 
     with pytest.raises(ValueError):
         mse([])
+
+
+
+def test_precision():
+    """Tests for the precision function."""
+
+    predictions = [pred(0, 0), pred(1, 1), pred(2, 2), pred(100, 100)]
+    assert precision(predictions, binary_threshold=4) == 1
+
+    predictions = [pred(0, 0), pred(0, 2)]
+    assert precision(predictions, binary_threshold=1) == 0 / 1
+
+    predictions = [pred(2, 0), pred(3, 4)]
+    assert precision(predictions) == 1
+
+    predictions = [pred(3, 5), pred(2, 6), pred(3, 3), pred(5, 5)]
+    assert precision(predictions) == 1 / (1 + 2)
+
+    with pytest.raises(ValueError):
+        precision([])
