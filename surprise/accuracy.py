@@ -207,11 +207,19 @@ def precision(predictions, binary_threshold=4, greater_than_threshold=True, zero
     if not predictions:
         raise ValueError('Prediction list is empty.')
 
-    tp_ = np.sum([(true_r > positive_threshold and est > positive_threshold)
-                    for (_, _, true_r, est, _) in predictions])
+    if greater_than_threshold:
+        tp_ = np.sum([(true_r > binary_threshold and est > binary_threshold)
+                        for (_, _, true_r, est, _) in predictions])
 
-    fp_ = np.sum([(true_r <= positive_threshold and est > positive_threshold)
-                    for (_, _, true_r, est, _) in predictions])
+        fp_ = np.sum([(true_r <= binary_threshold and est > binary_threshold)
+                        for (_, _, true_r, est, _) in predictions])
+    else:
+        tp_ = np.sum([(true_r >= binary_threshold and est >= binary_threshold)
+                      for (_, _, true_r, est, _) in predictions])
+
+        fp_ = np.sum([(true_r < binary_threshold and est >= binary_threshold)
+                      for (_, _, true_r, est, _) in predictions])
+
 
     prec_ = tp_/(tp_ + fp_) if (tp_ + fp_) > 0 else zero_division
 
@@ -250,11 +258,18 @@ def recall(predictions, binary_threshold=4, greater_than_threshold=True, zero_di
     if not predictions:
         raise ValueError('Prediction list is empty.')
 
-    tp_ = np.sum([(true_r > positive_threshold and est > positive_threshold)
-                    for (_, _, true_r, est, _) in predictions])
+    if greater_than_threshold:
+        tp_ = np.sum([(true_r > binary_threshold and est > binary_threshold)
+                        for (_, _, true_r, est, _) in predictions])
 
-    fn_ = np.sum([(true_r > positive_threshold and est <= positive_threshold)
-                    for (_, _, true_r, est, _) in predictions])
+        fn_ = np.sum([(true_r > binary_threshold and est <= binary_threshold)
+                        for (_, _, true_r, est, _) in predictions])
+    else:
+        tp_ = np.sum([(true_r >= binary_threshold and est >= binary_threshold)
+                      for (_, _, true_r, est, _) in predictions])
+
+        fn_ = np.sum([(true_r >= binary_threshold and est < binary_threshold)
+                      for (_, _, true_r, est, _) in predictions])
 
     rec_ = tp_/(tp_ + fn_) if (tp_ + fn_) > 0 else zero_division
 
