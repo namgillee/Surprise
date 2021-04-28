@@ -1,19 +1,17 @@
-'''This module is for computing genre similarity matrices'''
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 def compute_f_matrix(user_based, trainset, genre_file):
-    '''
+    """
     Compute (n_x)-by-(n_g) matrix of relative frequencies in pd.Data.Frame, where
-      n_x is the size of users if user_based is True; 
+      n_x is the size of users if user_based is True;
       n_x is the size of items if user_based is not True.
       n_g is the number of genres.
     The input genre_file is a csv file that consists of
       genre.columns[0] is the items column if user_based is True; users column if user_based is False.
       genre.columns[1] is an unused column.
       genre.columns[2:] are the genre levels.
-    '''
+    """
     if user_based:
         n_x = trainset.n_users
     else:
@@ -47,43 +45,35 @@ def compute_f_matrix(user_based, trainset, genre_file):
     return n_x, f
 
 
-def squared_deviance(n_x, f): 
-    # Compute genre similarity matrix
+def squared_deviance(n_x, f):
+    """
+    Compute genre similarity matrix based on squared deviance
+    """
     fa = np.array(f)
-    genre_sim = np.zeros((n_x,n_x))
-    for i in range(0, n_x) :
-        for j in range(0, n_x) :
-            a = fa[i]+fa[j]
-            b = np.where(a>0)
-            b = np.array(b)
-            b = b.tolist()
-            b = b[0]
-            x = 0
-            y = 0
-            for k in b :
-                x += max(fa[i][k], fa[j][k])*(fa[i][k]-fa[j][k])*(fa[i][k]-fa[j][k])
-                y += max(fa[i][k], fa[j][k])
-                z1 = x/y
-            genre_sim[i, j] = 1 - z1
-    return genre_sim
+    n_g = fa.shape[1]
+    num = np.zeros((n_x, n_x))
+    den = np.zeros((n_x,n_x))
+    for k in range(0, n_g):
+        ff_max = np.maximum.outer(fa[:, k], fa[:, k])
+        ff_sub = np.subtract.outer(fa[:, k], fa[:, k])
+        num += ff_max * ff_sub * ff_sub
+        den += ff_max
 
-def absolute_deviance(n_x, f): 
-    # Compute genre similarity matrix
+    return 1 - np.divide(num, den, out=np.ones_like(num), where=den!=0)
+
+
+def absolute_deviance(n_x, f):
+    """
+    Compute genre similarity matrix based on absolute deviance
+    """
     fa = np.array(f)
-    genre_sim = np.zeros((n_x,n_x))
-    for i in range(0, n_x) :
-        for j in range(0, n_x) :
-            a = fa[i]+fa[j]
-            b = np.where(a>0)
-            b = np.array(b)
-            b = b.tolist()
-            b = b[0]
-            x = 0
-            y = 0
-            for k in b :
-                x += max(fa[i][k], fa[j][k])* abs(fa[i][k]-fa[j][k])
-                y += max(fa[i][k], fa[j][k])
-                z1 = x/y
-            genre_sim[i, j] = 1 - z1
-    return genre_sim
+    n_g = fa.shape[1]
+    num = np.zeros((n_x, n_x))
+    den = np.zeros((n_x, n_x))
+    for k in range(0, n_g):
+        ff_max = np.maximum.outer(fa[:, k], fa[:, k])
+        ff_sub = np.subtract.outer(fa[:, k], fa[:, k])
+        num += ff_max * np.abs(ff_sub)
+        den += ff_max
 
+    return 1 - np.divide(num, den, out=np.ones_like(num), where=den!=0)
