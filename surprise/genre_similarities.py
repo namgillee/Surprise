@@ -1,16 +1,21 @@
 import numpy as np
 import pandas as pd
+import rdkit.Chem as Chem
 
 def compute_f_matrix(user_based, trainset, genre_file):
     """
     Compute (n_x)-by-(n_g) matrix of relative frequencies in pd.Data.Frame, where
-      n_x is the size of users if user_based is True;
-      n_x is the size of items if user_based is not True.
-      n_g is the number of genres.
-    The input genre_file is a csv file that consists of
+    n_x is the size of users if user_based is True;
+    n_x is the size of items if user_based is not True.
+    n_g is the number of genres.
+
+    :param user_based: True to indicate user-based collaborative filtering method.
+    :param trainset: a Trainset class instance.
+    :param genre_file: a csv file that consists of
       genre.columns[0] is the items column if user_based is True; users column if user_based is False.
       genre.columns[1] is an unused column.
       genre.columns[2:] are the genre levels.
+    :returns: (n_x, f), where f is a DataFrame of size (n_x)-by-(n_g)
     """
     if user_based:
         n_x = trainset.n_users
@@ -77,3 +82,41 @@ def absolute_deviance(n_x, f):
         den += ff_max
 
     return 1 - np.divide(num, den, out=np.ones_like(num), where=den!=0)
+
+
+def compute_fpsim(user_based, trainset, fpsim_file):
+    """
+    Compute (n_x)-by-(n_x) matrix of fingerprint similarity
+    n_x is the size of users if user_based is True, and "CID" indicates user;
+    n_x is the size of items if user_based is not True, and "CID" indicates item.
+
+    :param user_based: True to indicate user-based collaborative filtering method.
+    :param trainset: a Trainset class instance.
+    :param fpsim_file: a pickle file containing dataframe including columns "CID" and "fp".
+    :returns: (n_x, n_x) numpy array
+    """
+    # Read fp
+    fp_df = pd.read_pickle(fpsim_file) # with columns "CID" and "fp"
+
+    # Select subset of fp
+    if user_based:
+        n_x = trainset.n_users
+        raw_uid_list = [trainset.to_raw_uid(x) for x in range(n_x)]
+        fp_df_subset = fp_df[fp_df["CID"].isin(raw_uid_list)].copy()
+        fp_df_subset["inner_id"] = fp_df_subset["CID"].apply(trainset.to_inner_uid)
+    else:
+        n_x = trainset.n_items
+        raw_iid_list = [trainset.to_raw_iid(x) for x in range(n_x)]
+        fp_df_subset = fp_df[fp_df["CID"].isin(raw_iid_list)].copy()
+        fp_df_subset["inner_id"] = fp_df_subset["CID"].apply(trainset.to_inner_iid)
+
+    # Sort fp by inner-id of trainset
+    fp_df_subset.sort_values(by='inner_id', inplace=True)
+
+    # Compute fp similarity
+    fp_sim = np.ones(shape=(n_x, n_x), dtype=np.float32)
+    for i in range(n_x):
+        fp_sim[i, :] = Chem.DataStructs.BulkTanimotoSimilarity(
+            fp_df_subset["fp"].iloc[i], fp_df_subset["fp"].to_list())
+
+    return fp_sim

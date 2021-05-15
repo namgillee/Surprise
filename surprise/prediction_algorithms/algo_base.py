@@ -247,14 +247,14 @@ class AlgoBase(object):
         if getattr(self, 'verbose', False):
             print('Computing the {0} similarity matrix...'.format(name))
             
-        ### Compute similarity matrix sim
+        # Compute similarity matrix sim
         try:
             sim = construction_func[name](*args)
         except KeyError:
             raise NameError('Wrong sim name ' + name + '. Allowed values ' +
                             'are ' + ', '.join(construction_func.keys()) + '.')
             
-        ### Compute Genre-based similarity matrix and mix it with sim
+        # Compute Genre-based similarity matrix and mix it with sim
         if self.sim_options.get('use_genre') is not None: 
             
             genre_options = self.sim_options.get('use_genre', {})
@@ -277,7 +277,23 @@ class AlgoBase(object):
                                 'are ' + ', '.join(genre_construction_func.keys()) + '.')
             except ImportError as exception:
                 print(exception.__class__.__name__ + ": " + exception.message)
-            
+
+        # Compute Fingerprint similarity matrix and mix it with sim
+        if self.sim_options.get('use_fpsim') is not None:
+
+            fpsim_options = self.sim_options.get('use_fpsim', {})
+
+            fpsim_file = fpsim_options.get('fpsim_file', '')
+            fpsim_shrinkage = fpsim_options.get('fpsim_shrinkage', 0)
+
+            fpsim_args = [self.sim_options['user_based'], self.trainset, fpsim_file]
+
+            try:
+                fp_sim = genre_sims.compute_fpsim(*fpsim_args)
+                sim = (1 - fpsim_shrinkage) * sim + fpsim_shrinkage * fp_sim
+            except ImportError as exception:
+                print(exception.__class__.__name__ + ": " + exception.message)
+
         if getattr(self, 'verbose', False):
             print('Done computing similarity matrix.')
         return sim
